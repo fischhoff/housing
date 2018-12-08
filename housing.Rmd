@@ -1,0 +1,123 @@
+---
+title: "housing"
+author: "Ilya"
+date: "12/8/2018"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+####install packages
+```{r packages, echo=FALSE}
+pkgTest <- function(x)
+{
+  if (x %in% rownames(installed.packages()) == FALSE) {
+    install.packages(x, dependencies= TRUE)    
+  }
+  library(x, character.only = TRUE)
+}
+neededPackages <- c("leaflet", "raster", "mapview", "sp", "zipcode", "ggmap")
+
+for (package in neededPackages){pkgTest(package)}
+
+```
+
+
+#Zillow data -- single family homes, zip code -- more lines of this than for neighborhood so perhaps this is smaller spatial scale 
+```{r}
+Z= read.csv("Zip_Zhvi_SingleFamilyResidence.csv")
+names(Z)
+#dim(Z)
+Z$RegionID = as.character(Z$RegionID)
+head(unique(Z$RegionID))#these look like zip codes
+
+#read in zipcode data
+zip = data(zipcode)
+
+zipcode = zipcode[c("zip", "latitude", "longitude")]
+
+names(zipcode)[names(zipcode)=="zip"]="RegionID"
+dim(Z)[1]
+missing_in_zipcode = setdiff(Z$RegionID, zipcode$RegionID)
+head(sort(missing_in_zipcode))
+Z = merge(Z, zipcode, by = "RegionID")
+dim(Z)[1]
+
+not_na_indslat = which(!is.na(Z$longitude))#remove na inds
+not_na_indslon = which(!is.na(Z$latitude))#remove na inds
+not_na_inds = intersect(not_na_indslon, not_na_indslat)
+Z = Z[not_na_inds,]
+
+# df = Z
+# proj  = "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"
+# xy <- cbind(df$longitude,df$latitude)#package sp
+# 
+# df <-SpatialPointsDataFrame(coords = xy, data = df, 
+#                             proj4string = CRS(proj))
+
+#check that zipcodes in zipcode dataset look right
+p <-ggplot()+
+  geom_point(aes(x = longitude, y = latitude), data = zipcode,  col = "orange",
+             alpha = 0.4)
+p
+missing_zips = setdiff(zipcode$RegionID, Z$RegionID)
+length(missing_zips)
+#Zillow data seems to be missing a lot of zip codes, unless I am missing something
+
+p <-ggplot()+
+  geom_point(aes(x = longitude, y = latitude), data = Z,  col = "orange",
+             alpha = 0.4, fill = Z$X2018.08)+
+  scale_size_continuous(range = range(Z$X2018.08))
+p
+
+
+#https://blog.dominodatalab.com/geographic-visualization-with-rs-ggmaps/
+##I seem to be over query limit so below doesn't work
+#usa_center = as.numeric(geocode("United States"))
+ 
+#USAMap = ggmap(get_googlemap(center=usa_center, scale=2, zoom=4), extent="normal")
+
+##commenting out this part of using leaflet to make map
+# pal <- colorNumeric("viridis", NULL)
+# #commenting this out because it does not display well in github_document
+# M<- leaflet(df) %>%
+#   addTiles() %>%
+#   addCircleMarkers(color = ~pal(X2018.08),
+#     stroke = FALSE, fillOpacity = 0.1) %>%
+#   # setView(lat = 39.5, lng=-98.5, zoom =4) %>%
+#    #  add(stroke = FALSE, smoothFactor = 0.3, fillOpacity = 1,
+#    #  fillColor = ~pal(outC$incidence),
+#    #  #label with county name 
+#    #  label = ~paste0(county_name, ": ", formatC(outC$incidence, big.mark = ","))) %>%
+#    addLegend(pal = pal, values = df$X2018.08, opacity = 1.0,
+#      labFormat = labelFormat(transform = function(x) round(10^x)))
+# 
+# # mapshot(M, file = "EMPRESi_cases.png")
+# M
+
+
+
+```
+
+##Zillow all homes, neighborhood scale (not sure whether this is smaller or larger spatial scale than zip code)
+###would be necessary to use Zillow boundaries files to make sense of this neighborhood data: https://www.zillow.com/howto/api/neighborhood-boundaries.htm
+```{r}
+
+Z_nh = read.csv("Neighborhood_Zhvi_SingleFamilyResidence.csv")
+# names(Z_nh)
+dim(Z_nh)
+# summary(Z_nh)
+```
+
+###now try American Housing Survey data
+###https://www.census.gov/programs-surveys/ahs/data/2017/ahs-2017-public-use-file--puf-/ahs-2017-national-public-use-file--puf-.html
+```{r}
+path = "AHS 2017 National PUF v1.1 CSV/"
+A =  read.csv(paste0(path,"household.csv"), skip = 1,
+              row.names = 1, header= TRUE)
+names(A)
+```
+
